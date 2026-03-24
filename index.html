@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>팀 안건 보드</title>
+<style>
+  :root {
+    --primary: #4F46E5;
+    --primary-light: #EEF2FF;
+    --secondary: #7C3AED;
+    --success: #059669;
+    --warning: #D97706;
+    --danger: #DC2626;
+    --gray: #6B7280;
+    --light: #F9FAFB;
+    --border: #E5E7EB;
+    --white: #FFFFFF;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #F1F5F9; color: #1E293B; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(79,70,229,0.3);
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  header .subtitle { font-size: 0.72rem; opacity: 0.8; margin-top: 2px; }
+  .user-badge { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 5px 12px; font-size: 0.78rem; font-weight: 600; }
+
+  .tab-nav { display: flex; background: var(--white); border-bottom: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn { flex: 1; min-width: 70px; padding: 13px 8px; border: none; background: none; font-size: 0.78rem; font-weight: 500; color: var(--gray); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+  .tab-icon { font-size: 1.1rem; display: block; margin-bottom: 2px; }
+
+  .page { display: none; padding: 16px; padding-bottom: 80px; }
+  .page.active { display: block; }
+
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-title { font-size: 1rem; font-weight: 700; }
+  .section-count { background: var(--primary-light); color: var(--primary); border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; }
+
+  .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); transition: transform 0.15s, box-shadow 0.15s; }
+  .card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  .card.done-card { opacity: 0.75; border-left: 4px solid var(--success); }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .card-title { font-size: 0.92rem; font-weight: 700; flex: 1; line-height: 1.4; cursor: pointer; }
+  .card-body { font-size: 0.82rem; color: var(--gray); line-height: 1.6; margin-bottom: 10px; }
+  .card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.72rem; color: var(--gray); }
+
+  .badge { display: inline-flex; align-items: center; gap: 3px; border-radius: 6px; padding: 3px 9px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+  .badge-subleader { background: #FEF3C7; color: #92400E; }
+  .badge-senior    { background: #DBEAFE; color: #1E40AF; }
+  .badge-junior    { background: #D1FAE5; color: #065F46; }
+  .badge-newbie    { background: #FCE7F3; color: #9D174D; }
+
+  .status-badge { border-radius: 6px; padding: 3px 9px; font-size: 0.68rem; font-weight: 700; }
+  .status-pending  { background: #FEF9C3; color: #713F12; }
+  .status-discuss  { background: #DBEAFE; color: #1E40AF; }
+  .status-done     { background: #D1FAE5; color: #065F46; }
+
+  .priority-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .p-high { background: var(--danger); }
+  .p-mid  { background: var(--warning); }
+  .p-low  { background: var(--success); }
+
+  .btn { border: none; border-radius: 8px; padding: 8px 16px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: #4338CA; }
+  .btn-outline { background: none; border: 1.5px solid var(--primary); color: var(--primary); }
+  .btn-outline:hover { background: var(--primary-light); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-sm { padding: 5px 10px; font-size: 0.72rem; }
+
+  .fab { position: fixed; bottom: 24px; right: 20px; width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; font-size: 1.4rem; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(79,70,229,0.4); display: flex; align-items: center; justify-content: center; transition: transform 0.2s; z-index: 200; }
+  .fab:hover { transform: scale(1.08); }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 500; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--white); border-radius: 20px 20px 0 0; padding: 24px 20px 36px; width: 100%; max-height: 90vh; overflow-y: auto; animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+  .modal-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 18px; }
+
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+  input, textarea, select { width: 100%; border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; font-family: inherit; outline: none; transition: border-color 0.2s; background: var(--light); }
+  input:focus, textarea:focus, select:focus { border-color: var(--primary); background: white; }
+  textarea { resize: vertical; min-height: 90px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .form-actions .btn { flex: 1; padding: 12px; }
+
+  .vote-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .vote-btn { border: none; background: var(--light); border-radius: 8px; padding: 5px 12px; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600; transition: background 0.15s; }
+  .vote-btn.voted { background: #DBEAFE; color: var(--primary); }
+  .done-toggle-btn { border: none; border-radius: 8px; padding: 5px 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .done-toggle-btn.mark-done { background: #D1FAE5; color: #065F46; }
+  .done-toggle-btn.mark-undo { background: #FEE2E2; color: #991B1B; }
+
+  .comments-wrap { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; display: none; }
+  .comments-wrap.open { display: block; }
+  .comment-item { display: flex; gap: 8px; margin-bottom: 8px; }
+  .comment-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; color: white; }
+  .comment-bubble { background: var(--light); border-radius: 0 10px 10px 10px; padding: 7px 10px; font-size: 0.8rem; flex: 1; }
+  .comment-name { font-weight: 700; font-size: 0.72rem; margin-bottom: 2px; }
+  .comment-input-row { display: flex; gap: 6px; margin-top: 8px; }
+  .comment-input-row input { flex: 1; padding: 7px 10px; font-size: 0.8rem; }
+  .comment-input-row button { border: none; background: var(--primary); color: white; border-radius: 8px; padding: 7px 12px; font-size: 0.8rem; cursor: pointer; }
+
+  .search-bar { position: relative; margin-bottom: 10px; }
+  .search-bar input { padding-left: 36px; background: var(--white); }
+  .search-bar .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 0.95rem; pointer-events: none; }
+
+  .month-scroll { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; }
+  .month-scroll::-webkit-scrollbar { display: none; }
+  .month-chip { border: 1.5px solid var(--border); background: var(--white); border-radius: 20px; padding: 5px 14px; font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; display: flex; align-items: center; gap: 4px; }
+  .month-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+  .month-chip.folder { background: #FFFBEB; border-color: #FCD34D; color: #92400E; }
+  .month-chip.folder.active { background: #F59E0B; border-color: #F59E0B; color: white; }
+
+  .archive-header { background: linear-gradient(135deg, #F59E0B, #D97706); color: white; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .archive-header .folder-icon { font-size: 1.4rem; }
+  .archive-header .folder-title { font-size: 0.9rem; font-weight: 700; }
+  .archive-header .folder-sub { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--white); border-radius: var(--radius); padding: 14px 12px; text-align: center; box-shadow: var(--shadow); border: 1px solid var(--border); }
+  .stat-num { font-size: 1.6rem; font-weight: 800; color: var(--primary); line-height: 1; }
+  .stat-label { font-size: 0.7rem; color: var(--gray); margin-top: 4px; }
+
+  .meeting-banner { background: linear-gradient(135deg, #4F46E5, #7C3AED); border-radius: var(--radius); padding: 16px; color: white; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .meeting-banner .date-big { font-size: 1.4rem; font-weight: 800; }
+  .meeting-banner .date-sub { font-size: 0.75rem; opacity: 0.85; margin-top: 2px; }
+  .meeting-banner .dday { background: rgba(255,255,255,0.2); border-radius: 10px; padding: 6px 14px; font-size: 0.85rem; font-weight: 700; }
+
+  .profile-card { background: var(--white); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); text-align: center; margin-bottom: 14px; }
+  .profile-avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-weight: 700; }
+  .settings-list { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .settings-item { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .settings-item:last-child { border-bottom: none; }
+  .settings-item:hover { background: var(--light); }
+  .settings-icon { font-size: 1.1rem; margin-right: 12px; }
+  .settings-text { flex: 1; font-size: 0.88rem; font-weight: 500; }
+  .settings-arrow { color: var(--gray); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--gray); }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+  .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #1E293B; color: white; padding: 10px 20px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 600; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .filter-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-chip { border: 1.5px solid var(--border); background: var(--white); border-radius: 20px; padding: 5px 14px; font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .filter-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+  .minutes-form-area { background: var(--white); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .minutes-form-area h3 { font-size: 0.88rem; font-weight: 700; margin-bottom: 12px; color: var(--primary); }
+
+  .detail-section { margin-bottom: 14px; }
+  .detail-label { font-size: 0.72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+  .detail-value { font-size: 0.88rem; color: #1E293B; line-height: 1.6; }
+
+  .divider-label { font-size: 0.72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px; padding: 0 4px; }
+
+  /* LOGIN SCREEN */
+  #auth-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(145deg, #4F46E5 0%, #7C3AED 60%, #A855F7 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #auth-screen.hidden { display: none; }
+
+  .auth-logo { text-align: center; margin-bottom: 32px; }
+  .auth-logo .logo-icon { font-size: 3rem; display: block; margin-bottom: 8px; }
+  .auth-logo h1 { font-size: 1.4rem; font-weight: 800; color: white; letter-spacing: -0.5px; }
+  .auth-logo p { font-size: 0.8rem; color: rgba(255,255,255,0.75); margin-top: 4px; }
+
+  .auth-card {
+    background: white; border-radius: 20px; padding: 28px 24px;
+    width: 100%; max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+
+  .auth-tabs { display: flex; border-radius: 10px; overflow: hidden; border: 1.5px solid #E5E7EB; margin-bottom: 22px; }
+  .auth-tab-btn { flex: 1; padding: 10px; border: none; background: #F9FAFB; font-size: 0.82rem; font-weight: 600; color: #6B7280; cursor: pointer; transition: all 0.2s; }
+  .auth-tab-btn.active { background: #4F46E5; color: white; }
+
+  .auth-step { display: none; }
+  .auth-step.active { display: block; }
+
+  .auth-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; color: #1E293B; }
+  .auth-sub { font-size: 0.78rem; color: #6B7280; margin-bottom: 18px; line-height: 1.5; }
+
+  .auth-form-group { margin-bottom: 14px; }
+  .auth-form-group label { display: block; font-size: 0.78rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+  .auth-form-group input, .auth-form-group select {
+    width: 100%; border: 1.5px solid #E5E7EB; border-radius: 10px;
+    padding: 11px 14px; font-size: 0.88rem; font-family: inherit;
+    outline: none; transition: border-color 0.2s; background: #F9FAFB;
+  }
+  .auth-form-group input:focus, .auth-form-group select:focus { border-color: #4F46E5; background: white; }
+
+  .auth-input-row { display: flex; gap: 8px; }
+  .auth-input-row input { flex: 1; }
+  .auth-send-btn {
+    border: none; background: #4F46E5; color: white; border-radius: 10px;
+    padding: 11px 14px; font-size: 0.78rem; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: background 0.2s; flex-shrink: 0;
+  }
+  .auth-send-btn:hover { background: #4338CA; }
+  .auth-send-btn:disabled { background: #A5B4FC; cursor: not-allowed; }
+
+  .auth-verify-box {
+    background: #EEF2FF; border-radius: 10px; border: 1.5px solid #C7D2FE;
+    padding: 12px 14px; margin-bottom: 14px; display: none;
+  }
+  .auth-verify-box.show { display: block; }
+  .auth-verify-label { font-size: 0.72rem; font-weight: 700; color: #4F46E5; margin-bottom: 6px; }
+  .auth-code-display {
+    font-size: 1.6rem; font-weight: 800; color: #4F46E5;
+    letter-spacing: 8px; text-align: center; margin: 6px 0;
+  }
+  .auth-verify-hint { font-size: 0.7rem; color: #6B7280; text-align: center; margin-top: 4px; }
+  .auth-timer { font-size: 0.72rem; color: #DC2626; font-weight: 700; text-align: right; margin-top: 4px; }
+
+  .auth-btn {
+    width: 100%; border: none; border-radius: 10px;
+    padding: 13px; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; margin-top: 4px;
+  }
+  .auth-btn-primary { background: linear-gradient(135deg, #4F46E5, #7C3AED); color: white; }
+  .auth-btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+  .auth-btn-outline { background: none; border: 1.5px solid #E5E7EB; color: #6B7280; margin-top: 8px; }
+  .auth-btn-outline:hover { border-color: #4F46E5; color: #4F46E5; }
+
+  .auth-error { background: #FEE2E2; border-radius: 8px; padding: 9px 12px; font-size: 0.78rem; color: #991B1B; font-weight: 600; margin-bottom: 12px; display: none; }
+  .auth-error.show { display: block; }
+  .auth-success-msg { background: #D1FAE5; border-radius: 8px; padding: 9px 12px; font-size: 0.78rem; color: #065F46; font-weight: 600; margin-bottom: 12px; display: none; }
+  .auth-success-msg.show { display: block; }
+
+  .auth-divider { text-align: center; font-size: 0.72rem; color: #9CA3AF; margin: 14px 0; }
+
+  .role-select-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .role-select-card {
+    border: 2px solid #E5E7EB; border-radius: 10px; padding: 12px 8px;
+    text-align: center; cursor: pointer; transition: all 0.2s; background: #F9FAFB;
+  }
+  .role-select-card:hover { border-color: #4F46E5; background: #EEF2FF; }
+  .role-select-card.selected { border-color: #4F46E5; background: #EEF2FF; }
+  .role-select-card .role-icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+  .role-select-card .role-name { font-size: 0.75rem; font-weight: 700; color: #374151; }
+  .role-select-card .role-desc { font-size: 0.65rem; color: #6B7280; margin-top: 2px; }
+
+  .signup-progress { display: flex; align-items: center; margin-bottom: 20px; }
+  .sp-step {
+    width: 26px; height: 26px; border-radius: 50%; border: 2px solid #E5E7EB;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 800; color: #9CA3AF; background: white; flex-shrink: 0;
+  }
+  .sp-step.active { border-color: #4F46E5; color: #4F46E5; background: #EEF2FF; }
+  .sp-step.done { border-color: #059669; background: #059669; color: white; }
+  .sp-line { flex: 1; height: 2px; background: #E5E7EB; margin: 0 4px; }
+  .sp-line.done { background: #059669; }
+
+  .auth-user-info { background: var(--primary-light); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; border: 1.5px solid #C7D2FE; }
+  .auth-user-info .info-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.82rem; }
+  .auth-user-info .info-row:last-child { margin-bottom: 0; }
+  .auth-user-info .info-label { font-weight: 700; color: var(--primary); min-width: 50px; font-size: 0.75rem; }
+  .auth-user-info .info-val { color: #374151; font-size: 0.82rem; }
+</style>
+
+<script
+  type="text/javascript"
+  src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
+</script>
+<script type="text/javascript">
+  (function() {
+    emailjs.init({
+      publicKey: "u7gsTQLjp865k3Wz7",
+    });
+  })();
+</script>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-logo">
+    <span class="logo-icon">🗓️</span>
+    <h1>팀 안건 보드</h1>
+    <p>매니저 전용 안건 · 브레인스토밍 플랫폼</p>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab-btn active" id="tab-login-btn" onclick="switchAuthTab('login')">로그인</button>
+      <button class="auth-tab-btn" id="tab-signup-btn" onclick="switchAuthTab('signup')">회원가입</button>
+    </div>
+
+    <div class="auth-step active" id="auth-login">
+      <div class="auth-title">다시 만나서 반가워요 👋</div>
+      <div class="auth-sub">이메일과 비밀번호로 로그인하세요</div>
+      <div class="auth-error" id="login-error"></div>
+      <div class="auth-form-group">
+        <label>이메일</label>
+        <input type="email" id="login-email" placeholder="example@email.com" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="auth-form-group">
+        <label>비밀번호</label>
+        <input type="password" id="login-pw" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="auth-btn auth-btn-primary" onclick="doLogin()">로그인</button>
+      <div class="auth-divider">또는</div>
+      <button class="auth-btn auth-btn-outline" onclick="switchAuthTab('signup')">회원가입 하러가기 →</button>
+    </div>
+
+    <div class="auth-step" id="auth-signup-1">
+      <div class="signup-progress">
+        <div><div class="sp-step active" id="sp1">1</div></div>
+        <div class="sp-line" id="sp-line1"></div>
+        <div><div class="sp-step" id="sp2">2</div></div>
+        <div class="sp-line" id="sp-line2"></div>
+        <div><div class="sp-step" id="sp3">3</div></div>
+      </div>
+      <div class="auth-title">이메일 인증</div>
+      <div class="auth-sub">팀 이메일 주소를 입력하고 인증번호를 받으세요</div>
+      <div class="auth-error" id="signup1-error"></div>
+      <div class="auth-form-group">
+        <label>이메일</label>
+        <div class="auth-input-row">
+          <input type="email" id="signup-email" placeholder="example@email.com">
+          <button class="auth-send-btn" id="send-code-btn" onclick="sendVerifyCode()">인증번호 발송</button>
+        </div>
+      </div>
+
+      <div class="auth-verify-box" id="verify-box">
+        <div class="auth-verify-label">📬 인증번호</div>
+        <div class="auth-code-display" id="code-display">******</div>
+        <div class="auth-verify-hint">이메일로 받은 인증번호를 아래에 입력하세요</div>
+        <div class="auth-timer" id="auth-timer">유효시간 3:00</div>
+      </div>
+
+      <div class="auth-form-group" id="code-input-group" style="display:none;">
+        <label>인증번호 6자리</label>
+        <div class="auth-input-row">
+          <input type="text" id="signup-code" placeholder="6자리 입력" maxlength="6" style="letter-spacing:6px;font-weight:800;font-size:1.1rem;" onkeydown="if(event.key==='Enter')verifyCode()">
+          <button class="auth-send-btn" onclick="verifyCode()">확인</button>
+        </div>
+      </div>
+      <div class="auth-success-msg" id="verify-success">✅ 이메일 인증 완료!</div>
+      <button class="auth-btn auth-btn-primary" id="next-step1-btn" onclick="goSignupStep2()" style="display:none;">다음 단계 →</button>
+      <button class="auth-btn auth-btn-outline" onclick="switchAuthTab('login')">← 로그인으로 돌아가기</button>
+    </div>
+
+    <div class="auth-step" id="auth-signup-2">
+      <div class="signup-progress">
+        <div><div class="sp-step done" id="sp1b">✓</div></div>
+        <div class="sp-line done"></div>
+        <div><div class="sp-step active" id="sp2b">2</div></div>
+        <div class="sp-line" id="sp-line2b"></div>
+        <div><div class="sp-step" id="sp3b">3</div></div>
+      </div>
+      <div class="auth-title">프로필 설정</div>
+      <div class="auth-sub">이름과 비밀번호를 설정하세요</div>
+      <div class="auth-error" id="signup2-error"></div>
+      <div class="auth-form-group">
+        <label>이름</label>
+        <input type="text" id="signup-name" placeholder="예: 홍길동">
+      </div>
+      <div class="auth-form-group">
+        <label>비밀번호</label>
+        <input type="password" id="signup-pw" placeholder="6자리 이상">
+      </div>
+      <div class="auth-form-group">
+        <label>비밀번호 확인</label>
+        <input type="password" id="signup-pw2" placeholder="비밀번호 재입력">
+      </div>
+      <button class="auth-btn auth-btn-primary" onclick="goSignupStep3()">다음 단계 →</button>
+    </div>
+
+    <div class="auth-step" id="auth-signup-3">
+      <div class="signup-progress">
+        <div><div class="sp-step done">✓</div></div>
+        <div class="sp-line done"></div>
+        <div><div class="sp-step done">✓</div></div>
+        <div class="sp-line done"></div>
+        <div><div class="sp-step active">3</div></div>
+      </div>
+      <div class="auth-title">직급 선택</div>
+      <div class="auth-sub">본인의 직급을 선택하세요</div>
+      <div class="auth-error" id="signup3-error"></div>
+      <div class="role-select-grid">
+        <div class="role-select-card" onclick="selectSignupRole('subleader',this)">
+          <span class="role-icon">🔵</span>
+          <div class="role-name">서브리더</div>
+          <div class="role-desc">중간관리자</div>
+        </div>
+        <div class="role-select-card" onclick="selectSignupRole('senior',this)">
+          <span class="role-icon">🟣</span>
+          <div class="role-name">시니어 매니저</div>
+          <div class="role-desc">시니어급</div>
+        </div>
+        <div class="role-select-card" onclick="selectSignupRole('junior',this)">
+          <span class="role-icon">🟢</span>
+          <div class="role-name">주니어 매니저</div>
+          <div class="role-desc">주니어급</div>
+        </div>
+        <div class="role-select-card" onclick="selectSignupRole('newbie',this)">
+          <span class="role-icon">🟡</span>
+          <div class="role-name">신입 매니저</div>
+          <div class="role-desc">신입</div>
+        </div>
+      </div>
+      <button class="auth-btn auth-btn-primary" onclick="completeSignup()">🎉 가입 완료!</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div>
+    <h1>🗓️ 팀 안건 보드</h1>
+    <div class="subtitle" id="meeting-countdown">다음 회식까지 계산 중...</div>
+  </div>
+  <div class="user-badge" id="user-badge-header">🔵 서브리더</div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="showPage('home')"><span class="tab-icon">🏠</span>홈</button>
+  <button class="tab-btn" onclick="showPage('agenda')"><span class="tab-icon">📋</span>안건</button>
+  <button class="tab-btn" onclick="showPage('brainstorm')"><span class="tab-icon">💡</span>브레인스토밍</button>
+  <button class="tab-btn" onclick="showPage('minutes')"><span class="tab-icon">📝</span>회의록</button>
+  <button class="tab-btn" onclick="showPage('profile')"><span class="tab-icon">👤</span>내 정보</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<div id="page-home" class="page active">
+  <div class="meeting-banner">
+    <div>
+      <div class="date-big" id="next-meeting-date">계산 중...</div>
+      <div class="date-sub">📍 다음 정기 회식</div>
+    </div>
+    <div class="dday" id="dday-badge">D-??</div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">전체 안건</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-pending">0</div><div class="stat-label">검토 중</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-done">0</div><div class="stat-label">처리 완료</div></div>
+  </div>
+  <div class="section-header">
+    <span class="section-title">최근 등록 안건</span>
+    <button class="btn btn-outline btn-sm" onclick="showPage('agenda')">전체 보기</button>
+  </div>
+  <div id="home-recent"></div>
+  <div class="card" style="background:var(--primary-light); border-color:#C7D2FE; margin-top:4px;">
+    <div style="font-size:0.78rem; font-weight:700; color:var(--primary); margin-bottom:6px;">💬 이번 달 회식 주제</div>
+    <div style="font-size:0.82rem; color:#3730A3; line-height:1.6;">안건을 미리 등록하고 찬반 투표로 우선순위를 정해보세요. 완료된 항목은 자동으로 해당 월 폴더에 보관됩니다!</div>
+  </div>
+</div>
+
+<div id="page-agenda" class="page">
+  <div class="section-header">
+    <span class="section-title">안건 목록</span>
+    <span class="section-count" id="agenda-count">0</span>
+  </div>
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="agenda-search" placeholder="안건 검색..." oninput="renderAgenda()">
+  </div>
+  <div class="filter-bar">
+    <div class="filter-chip active" onclick="filterAgenda('all',this)">전체</div>
+    <div class="filter-chip" onclick="filterAgenda('pending',this)">검토중</div>
+    <div class="filter-chip" onclick="filterAgenda('discuss',this)">논의예정</div>
+    <div class="filter-chip" onclick="filterAgenda('done',this)">완료</div>
+    <div class="filter-chip" onclick="filterAgenda('high',this)">🔴 긴급</div>
+  </div>
+  <div id="agenda-list"></div>
+</div>
+
+<div id="page-brainstorm" class="page">
+  <div class="section-header">
+    <span class="section-title">💡 브레인스토밍</span>
+    <span class="section-count" id="bs-count">0</span>
+  </div>
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="bs-search" placeholder="아이디어 검색..." oninput="renderBS()">
+  </div>
+  <div class="month-scroll" id="bs-month-scroll"></div>
+  <div id="bs-archive-header"></div>
+  <div id="bs-list"></div>
+</div>
+
+<div id="page-minutes" class="page">
+  <div class="section-header">
+    <span class="section-title">📝 회의록</span>
+    <span class="section-count" id="minutes-count">0</span>
+  </div>
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="minutes-search" placeholder="회의록 검색..." oninput="renderMinutes()">
+  </div>
+  <div class="month-scroll" id="minutes-month-scroll"></div>
+  <div id="minutes-archive-header"></div>
+  <div id="minutes-list"></div>
+</div>
+
+<div id="page-profile" class="page">
+  <div class="profile-card">
+    <div class="profile-avatar">엄</div>
+    <div style="font-size:1rem; font-weight:700;" id="profile-name-display">엄 매니저</div>
+    <div style="font-size:0.78rem; color:var(--gray); margin-top:4px;">서브리더 · 중간관리자</div>
+    <div style="margin-top:12px; display:flex; gap:8px; justify-content:center;">
+      <span class="badge badge-subleader" id="profile-role-badge">🔵 서브리더</span>
+    </div>
+  </div>
+  <div style="font-size:0.78rem; color:var(--gray); margin-bottom:8px; padding-left:4px; font-weight:600;">설정</div>
+  <div class="settings-list">
+    <div class="settings-item" onclick="openRoleModal()"><span class="settings-icon">👥</span><span class="settings-text">로그인 직급 변경</span><span class="settings-arrow">›</span></div>
+    <div class="settings-item" onclick="openMeetingDateModal()"><span class="settings-icon">📅</span><span class="settings-text">회식 일정 설정</span><span class="settings-arrow">›</span></div>
+    <div class="settings-item" onclick="clearAll()"><span class="settings-icon">🗑️</span><span class="settings-text">전체 데이터 초기화</span><span class="settings-arrow">›</span></div>
+  </div>
+</div>
+
+<button class="fab" id="fab" onclick="openAddModal()">＋</button>
+
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="add-modal-title">안건 등록</div>
+    <div class="form-group"><label>제목 *</label><input type="text" id="input-title" placeholder="제목을 입력하세요"></div>
+    <div class="form-group"><label>내용</label><textarea id="input-body" placeholder="내용을 입력하세요..."></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label>작성자 직급</label>
+        <select id="input-role">
+          <option value="subleader">서브리더</option>
+          <option value="senior">시니어 매니저</option>
+          <option value="junior">주니어 매니저</option>
+          <option value="newbie">신입 매니저</option>
+        </select>
+      </div>
+      <div class="form-group"><label>우선순위</label>
+        <select id="input-priority">
+          <option value="high">🔴 높음</option>
+          <option value="mid" selected>🟡 중간</option>
+          <option value="low">🟢 낮음</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>유형</label>
+        <select id="input-type">
+          <option value="agenda">📋 안건</option>
+          <option value="brainstorm">💡 브레인스토밍</option>
+          <option value="minutes">📝 회의록</option>
+        </select>
+      </div>
+      <div class="form-group"><label>카테고리</label>
+        <select id="input-category">
+          <option value="운영">운영</option>
+          <option value="고객응대">고객응대</option>
+          <option value="인사">인사</option>
+          <option value="시설">시설</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="cancelEditOrClose()">취소</button>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitItem()">등록하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="role-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">직급 선택</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button class="btn btn-outline" onclick="setRole('subleader','서브리더','🔵')">🔵 서브리더</button>
+      <button class="btn btn-outline" onclick="setRole('senior','시니어 매니저','🟣')">🟣 시니어 매니저</button>
+      <button class="btn btn-outline" onclick="setRole('junior','주니어 매니저','🟢')">🟢 주니어 매니저</button>
+      <button class="btn btn-outline" onclick="setRole('newbie','신입 매니저','🟡')">🟡 신입 매니저</button>
+    </div>
+    <div class="form-actions"><button class="btn btn-outline" onclick="closeModal('role-modal')">닫기</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="meeting-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">회식 일정 설정</div>
+    <div class="form-group"><label>날짜</label><input type="date" id="meeting-date-input"></div>
+    <div class="form-group"><label>장소 (선택)</label><input type="text" id="meeting-place-input" placeholder="예: 강남 OO식당"></div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeModal('meeting-modal')">취소</button>
+      <button class="btn btn-primary" onclick="saveMeetingDate()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// DATA
+let items = JSON.parse(localStorage.getItem('team_items') || '[]');
+let meetingDate = localStorage.getItem('meeting_date') || null;
+let meetingPlace = localStorage.getItem('meeting_place') || '';
+let currentRole = localStorage.getItem('current_role') || 'subleader';
+let agendaFilter = 'all';
+let bsMonthFilter = 'all';
+let minutesMonthFilter = 'all';
+let editingItemId = null;
+
+function saveItems() { localStorage.setItem('team_items', JSON.stringify(items)); }
+
+if (items.length === 0) {
+  const now = new Date();
+  const m = now.toISOString().split('T')[0];
+  const prev = new Date(now); prev.setMonth(prev.getMonth()-1);
+  const pm = prev.toISOString().split('T')[0];
+  items = [
+    { id:1, type:'agenda', title:'신규 체크인 절차 개선안', body:'디지털화하여 효율을 높이는 방안 검토', role:'senior', priority:'high', status:'discuss', category:'운영', votes:[], comments:[], date:m, completed:false },
+    { id:2, type:'agenda', title:'주간 보고서 양식 통일', body:'각 매니저별 보고서 양식 통일 필요', role:'subleader', priority:'mid', status:'pending', category:'인사', votes:[], comments:[{author:'시니어 매니저',role:'senior',text:'좋은 의견입니다!',time:'03-21'}], date:m, completed:false },
+    { id:3, type:'brainstorm', title:'입주고객 웰컴키트 제작', body:'신규 입주 고객에게 감사 선물과 편의 정보를 담은 웰컴키트 제공', role:'newbie', priority:'low', status:'pending', category:'고객응대', votes:[], comments:[], date:m, completed:false },
+    { id:4, type:'brainstorm', title:'고객 만족도 설문 앱 도입', body:'체크아웃 시 QR코드 설문으로 즉시 피드백 수집', role:'junior', priority:'mid', status:'done', category:'고객응대', votes:[], comments:[], date:pm, completed:true, completedDate:pm },
+    { id:5, type:'minutes', title:'2월 정기 회식 회의록', body:'체크인 절차 간소화 의결. 다음달 웰컴키트 논의 예정. 시설 점검 격주 시행 확정.', role:'subleader', priority:'mid', status:'done', category:'운영', votes:[], comments:[], date:pm, completed:true, completedDate:pm },
+    { id:6, type:'minutes', title:'3월 임시 회의록', body:'신규 입주 고객 응대 매뉴얼 업데이트 논의. 다음 정기 회식 안건 사전 공유.', role:'subleader', priority:'mid', status:'pending', category:'운영', votes:[], comments:[], date:m, completed:false },
+  ];
+  saveItems();
+}
+if (!meetingDate) {
+  const d = new Date(); d.setDate(25);
+  meetingDate = d.toISOString().split('T')[0];
+  localStorage.setItem('meeting_date', meetingDate);
+}
+
+const roleMap = { subleader:'서브리더', senior:'시니어 매니저', junior:'주니어 매니저', newbie:'신입 매니저' };
+const roleBadge = { subleader:'badge-subleader', senior:'badge-senior', junior:'badge-junior', newbie:'badge-newbie' };
+const roleBg = { subleader:'#FEF3C7', senior:'#DBEAFE', junior:'#D1FAE5', newbie:'#FCE7F3' };
+const roleColor = { subleader:'#92400E', senior:'#1E40AF', junior:'#065F46', newbie:'#9D174D' };
+const statusMap = { pending:'검토중', discuss:'논의예정', done:'완료' };
+const statusBadge = { pending:'status-pending', discuss:'status-discuss', done:'status-done' };
+const priorityColor = { high:'p-high', mid:'p-mid', low:'p-low' };
+
+function getMonthKey(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function getMonthLabel(key) {
+  const [y, m] = key.split('-');
+  return `${m}월`;
+}
+function fmtDate(d) {
+  const dt = new Date(d);
+  return `${dt.getMonth()+1}/${dt.getDate()}`;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function updateMeetingBanner() {
+  if (!meetingDate) return;
+  const dt = new Date(meetingDate);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.ceil((dt - today) / 86400000);
+  document.getElementById('next-meeting-date').textContent =
+    `${dt.getMonth()+1}월 ${dt.getDate()}일 (${['일','월','화','수','목','금','토'][dt.getDay()]})${meetingPlace ? ' · '+meetingPlace : ''}`;
+  const badge = document.getElementById('dday-badge');
+  badge.textContent = diff > 0 ? `D-${diff}` : diff === 0 ? 'D-Day!' : `D+${Math.abs(diff)}`;
+  document.getElementById('meeting-countdown').textContent =
+    diff > 0 ? `다음 회식까지 ${diff}일 남았습니다` : diff === 0 ? '🎉 오늘 회식 날입니다!' : '지난 회식 날짜입니다';
+}
+
+function updateStats() {
+  const ag = items.filter(i => i.type === 'agenda');
+  document.getElementById('stat-total').textContent = ag.length;
+  document.getElementById('stat-pending').textContent = ag.filter(i => !i.completed).length;
+  document.getElementById('stat-done').textContent = ag.filter(i => i.completed).length;
+  document.getElementById('agenda-count').textContent = ag.length;
+  document.getElementById('bs-count').textContent = items.filter(i => i.type === 'brainstorm').length;
+  document.getElementById('minutes-count').textContent = items.filter(i => i.type === 'minutes').length;
+}
+
+function getDistinctMonths(type) {
+  const months = new Set();
+  items.filter(i => i.type === type).forEach(i => {
+    const key = getMonthKey(i.completed && i.completedDate ? i.completedDate : i.date);
+    if (key) months.add(key);
+  });
+  return Array.from(months).sort().reverse();
+}
+
+function renderMonthChips(type, containerId, currentFilter, onSelect) {
+  const months = getDistinctMonths(type);
+  const hasCompleted = items.filter(i => i.type === type && i.completed).length > 0;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  let html = `<div class="month-chip ${currentFilter==='all'?'active':''}" onclick="${onSelect}('all',this)">📂 전체</div>`;
+  html += `<div class="month-chip ${currentFilter==='active'?'active':''}" onclick="${onSelect}('active',this)">✅ 진행중</div>`;
+  if (hasCompleted) {
+    months.forEach(m => {
+      const cnt = items.filter(i => i.type === type && i.completed && getMonthKey(i.completedDate || i.date) === m).length;
+      if (cnt > 0) {
+        html += `<div class="month-chip folder ${currentFilter===m?'active':''}" onclick="${onSelect}('${m}',this)">📁 ${getMonthLabel(m)} (${cnt})</div>`;
+      }
+    });
+  }
+  container.innerHTML = html;
+}
+
+function renderCard(item, showComments=true) {
+  const voteCount = item.votes ? item.votes.length : 0;
+  const commentCount = item.comments ? item.comments.length : 0;
+  const isVoted = item.votes && item.votes.includes(currentRole);
+  const isDone = item.completed;
+
+  return `
+  <div class="card ${isDone ? 'done-card' : ''}" id="card-${item.id}"
+       ondblclick="openEditModal(${item.id})">
+    <div class="card-top">
+      <div style="display:flex;gap:6px;align-items:flex-start;flex:1;">
+        <div class="priority-dot ${priorityColor[item.priority]}" style="margin-top:5px;flex-shrink:0;"></div>
+        <div class="card-title" onclick="openDetail(${item.id})">
+          ${isDone ? '<span style="color:var(--success);margin-right:4px;">✅</span>' : ''}${item.title}
+        </div>
+      </div>
+      <span class="status-badge ${statusBadge[item.status]}">${statusMap[item.status]}</span>
+    </div>
+    <div class="card-body" onclick="openDetail(${item.id})">${item.body || ''}</div>
+    <div class="card-meta">
+      <span class="badge ${roleBadge[item.role]}">${roleMap[item.role]}</span>
+      <span>· ${item.category}</span>
+      <span>· ${fmtDate(item.date)}</span>
+      ${isDone && item.completedDate ? `<span style="color:var(--success);font-weight:700;">· ✅ ${fmtDate(item.completedDate)} 완료</span>` : ''}
+    </div>
+    <div class="vote-row">
+      <button class="vote-btn ${isVoted?'voted':''}" onclick="toggleVote(${item.id})">👍 ${voteCount}</button>
+      <button class="vote-btn" onclick="toggleComments(${item.id})" style="${commentCount>0?'background:var(--primary-light);color:var(--primary)':''}">💬 ${commentCount}</button>
+      <button class="done-toggle-btn ${isDone?'mark-undo':'mark-done'}" onclick="toggleDone(${item.id})">
+        ${isDone ? '↩ 완료 해제' : '✅ 완료 처리'}
+      </button>
+      ${currentRole === 'subleader' && !isDone ? `<button class="vote-btn" onclick="cycleStatus(${item.id})" style="margin-left:auto;">🔄 상태</button>` : ''}
+    </div>
+    ${showComments ? `
+    <div class="comments-wrap" id="comments-${item.id}">
+      ${(item.comments||[]).map(c => `
+        <div class="comment-item" id="comment-${item.id}-${c.cid||''}">
+          <div class="comment-avatar" style="background:${roleBg[c.role]||'#E5E7EB'};color:${roleColor[c.role]||'#374151'}">${(roleMap[c.role]||'?').charAt(0)}</div>
+          <div class="comment-bubble">
+            <div class="comment-name">
+              ${c.author} · ${c.time}
+              ${c.role === currentRole ? `
+                <span style="float:right; font-size:0.7rem; color:#6B7280;">
+                  <button style="border:none;background:none;color:#6B7280;cursor:pointer;font-size:0.7rem;margin-right:4px;"
+                          onclick="startEditComment(${item.id}, ${c.cid||0})">수정</button>
+                  <button style="border:none;background:none;color:#DC2626;cursor:pointer;font-size:0.7rem;"
+                          onclick="deleteComment(${item.id}, ${c.cid||0})">삭제</button>
+                </span>
+              ` : ``}
+            </div>
+            <div class="comment-text" id="comment-text-${item.id}-${c.cid||0}">${c.text}</div>
+          </div>
+        </div>
+      `).join('')}
+      <div class="comment-input-row">
+        <input type="text" id="comment-input-${item.id}" placeholder="댓글 입력..." onkeydown="if(event.key==='Enter')addComment(${item.id})">
+        <button onclick="addComment(${item.id})">전송</button>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function toggleDone(id) {
+  const item = items.find(i => i.id === id);
+  item.completed = !item.completed;
+  if (item.completed) {
+    item.completedDate = new Date().toISOString().split('T')[0];
+    item.status = 'done';
+    showToast(`✅ "${item.title}" 완료 처리 → ${getMonthLabel(getMonthKey(item.completedDate))} 폴더 저장`);
+  } else {
+    item.completedDate = null;
+    item.status = 'pending';
+    showToast('↩ 완료 해제되었습니다');
+  }
+  saveItems(); renderAll();
+}
+
+function renderAgenda() {
+  const q = (document.getElementById('agenda-search')?.value || '').toLowerCase();
+  let list = items.filter(i => i.type === 'agenda');
+  if (agendaFilter === 'high') list = list.filter(i => i.priority === 'high');
+  else if (agendaFilter !== 'all') list = list.filter(i => i.status === agendaFilter);
+  if (q) list = list.filter(i => i.title.toLowerCase().includes(q) || (i.body||'').toLowerCase().includes(q));
+  list.sort((a,b) => {
+    const p={high:0,mid:1,low:2};
+    return (a.completed?1:0)-(b.completed?1:0) || p[a.priority]-p[b.priority] || new Date(b.date)-new Date(a.date);
+  });
+  const el = document.getElementById('agenda-list');
+  el.innerHTML = list.length ? list.map(i => renderCard(i)).join('') :
+    `<div class="empty-state"><div class="empty-icon">📋</div><p>해당 안건이 없습니다</p></div>`;
+}
+
+function renderBS() {
+  renderMonthChips('brainstorm', 'bs-month-scroll', bsMonthFilter, 'setBSMonth');
+  const q = (document.getElementById('bs-search')?.value || '').toLowerCase();
+  let list = items.filter(i => i.type === 'brainstorm');
+
+  const archiveEl = document.getElementById('bs-archive-header');
+  if (bsMonthFilter !== 'all' && bsMonthFilter !== 'active') {
+    list = list.filter(i => i.completed && getMonthKey(i.completedDate || i.date) === bsMonthFilter);
+    archiveEl.innerHTML = `<div class="archive-header"><span class="folder-icon">📁</span><div><div class="folder-title">${getMonthLabel(bsMonthFilter)} 완료 보관함</div><div class="folder-sub">${list.length}개 항목</div></div></div>`;
+  } else {
+    archiveEl.innerHTML = '';
+    if (bsMonthFilter === 'active') list = list.filter(i => !i.completed);
+  }
+  if (q) list = list.filter(i => i.title.toLowerCase().includes(q) || (i.body||'').toLowerCase().includes(q));
+  list.sort((a,b) => (a.completed?1:0)-(b.completed?1:0) || (b.votes?.length||0)-(a.votes?.length||0));
+  const el = document.getElementById('bs-list');
+  el.innerHTML = list.length ? list.map(i => renderCard(i)).join('') :
+    `<div class="empty-state"><div class="empty-icon">💡</div><p>아이디어를 자유롭게 올려보세요!</p></div>`;
+}
+
+function renderMinutes() {
+  renderMonthChips('minutes', 'minutes-month-scroll', minutesMonthFilter, 'setMinutesMonth');
+  const q = (document.getElementById('minutes-search')?.value || '').toLowerCase();
+  let list = items.filter(i => i.type === 'minutes');
+
+  const archiveEl = document.getElementById('minutes-archive-header');
+  if (minutesMonthFilter !== 'all' && minutesMonthFilter !== 'active') {
+    list = list.filter(i => i.completed && getMonthKey(i.completedDate || i.date) === minutesMonthFilter);
+    archiveEl.innerHTML = `<div class="archive-header"><span class="folder-icon">📁</span><div><div class="folder-title">${getMonthLabel(minutesMonthFilter)} 완료 보관함</div><div class="folder-sub">${list.length}개 항목</div></div></div>`;
+  } else {
+    archiveEl.innerHTML = '';
+    if (minutesMonthFilter === 'active') list = list.filter(i => !i.completed);
+  }
+  if (q) list = list.filter(i => i.title.toLowerCase().includes(q) || (i.body||'').toLowerCase().includes(q));
+  list.sort((a,b) => (a.completed?1:0)-(b.completed?1:0) || new Date(b.date)-new Date(a.date));
+  const el = document.getElementById('minutes-list');
+  el.innerHTML = list.length ? list.map(i => renderCard(i)).join('') :
+    `<div class="empty-state"><div class="empty-icon">📝</div><p>회의록을 등록해보세요</p></div>`;
+}
+
+function setBSMonth(val) {
+  bsMonthFilter = val;
+  renderBS();
+}
+function setMinutesMonth(val) {
+  minutesMonthFilter = val;
+  renderMinutes();
+}
+
+function renderAll() {
+  updateStats();
+  updateMeetingBanner();
+  const recent = [...items].filter(i => i.type==='agenda').sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
+  const homeEl = document.getElementById('home-recent');
+  homeEl.innerHTML = recent.length ? recent.map(i => renderCard(i, false)).join('') :
+    `<div class="empty-state"><div class="empty-icon">📭</div><p>아직 등록된 안건이 없어요</p></div>`;
+  renderAgenda();
+  renderBS();
+  renderMinutes();
+}
+
+function toggleVote(id) {
+  const item = items.find(i => i.id === id);
+  if (!item.votes) item.votes = [];
+  const idx = item.votes.indexOf(currentRole);
+  if (idx >= 0) item.votes.splice(idx,1); else item.votes.push(currentRole);
+  saveItems(); renderAll();
+  showToast(idx >= 0 ? '공감을 취소했습니다' : '공감했습니다! 👍');
+}
+function toggleComments(id) {
+  const el = document.getElementById(`comments-${id}`);
+  if (el) el.classList.toggle('open');
+}
+function addComment(id) {
+  const input = document.getElementById(`comment-input-${id}`);
+  const text = input.value.trim();
+  if (!text) return;
+  const item = items.find(i => i.id === id);
+  if (!item.comments) item.comments = [];
+  const now = new Date();
+
+  // 고유 댓글 id 부여
+  const cid = Date.now();
+
+  item.comments.push({
+    cid,
+    author: roleMap[currentRole],
+    role: currentRole,
+    text,
+    time: `${now.getMonth()+1}/${now.getDate()}`
+  });
+
+  input.value = '';
+  saveItems(); renderAll();
+  setTimeout(() => {
+    const el = document.getElementById(`comments-${id}`);
+    if (el) { el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  }, 100);
+}
+
+function startEditComment(itemId, cid) {
+  const textEl = document.getElementById(`comment-text-${itemId}-${cid}`);
+  if (!textEl) return;
+  const original = textEl.textContent;
+
+  // 이미 편집 중이면 무시
+  if (textEl.getAttribute('data-editing') === '1') return;
+  textEl.setAttribute('data-editing', '1');
+
+  // 인라인 input + 버튼으로 교체
+  textEl.innerHTML = `
+    <input type="text" id="comment-edit-input-${itemId}-${cid}"
+           value="${original.replace(/"/g,'&quot;')}"
+           style="width:100%;padding:4px 6px;font-size:0.8rem;">
+    <div style="margin-top:4px;text-align:right;font-size:0.7rem;">
+      <button style="border:none;background:#E5E7EB;border-radius:4px;padding:3px 6px;margin-right:4px;cursor:pointer;"
+              onclick="cancelEditComment(${itemId}, ${cid}, '${original.replace(/'/g,"\\'")}')">취소</button>
+      <button style="border:none;background:#4F46E5;color:white;border-radius:4px;padding:3px 6px;cursor:pointer;"
+              onclick="saveEditComment(${itemId}, ${cid})">저장</button>
+    </div>
+  `;
+}
+
+function cancelEditComment(itemId, cid, originalText) {
+  const textEl = document.getElementById(`comment-text-${itemId}-${cid}`);
+  if (!textEl) return;
+  textEl.setAttribute('data-editing','0');
+  textEl.textContent = originalText;
+}
+
+function saveEditComment(itemId, cid) {
+  const input = document.getElementById(`comment-edit-input-${itemId}-${cid}`);
+  if (!input) return;
+  const newText = input.value.trim();
+  if (!newText) {
+    showToast('내용을 입력하세요');
+    return;
+  }
+  const item = items.find(i => i.id === itemId);
+  if (!item || !item.comments) return;
+  const c = item.comments.find(cm => cm.cid === cid);
+  if (!c) return;
+  c.text = newText;
+
+  // 시간 업데이트 (선택사항)
+  const now = new Date();
+  c.time = `${now.getMonth()+1}/${now.getDate()}`;
+
+  saveItems();
+  renderAll();
+  setTimeout(() => {
+    const wrap = document.getElementById(`comments-${itemId}`);
+    if (wrap) wrap.classList.add('open');
+  }, 50);
+}
+
+function deleteComment(itemId, cid) {
+  const item = items.find(i => i.id === itemId);
+  if (!item || !item.comments) return;
+  if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+  item.comments = item.comments.filter(c => c.cid !== cid);
+  saveItems();
+  renderAll();
+  setTimeout(() => {
+    const wrap = document.getElementById(`comments-${itemId}`);
+    if (wrap) wrap.classList.add('open');
+  }, 50);
+}
+
+
+function cycleStatus(id) {
+  const item = items.find(i => i.id === id);
+  const cycle = ['pending','discuss','done'];
+  item.status = cycle[(cycle.indexOf(item.status)+1) % cycle.length];
+  saveItems(); renderAll();
+  showToast(`상태 → "${statusMap[item.status]}"`);
+}
+
+function openDetail(id) {
+  const item = items.find(i => i.id === id);
+  const detailEl = document.getElementById('detail-content');
+  detailEl.innerHTML = `
+    <div class="modal-title">${item.type==='brainstorm'?'💡':item.type==='minutes'?'📝':'📋'} ${item.title}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+      <span class="badge ${roleBadge[item.role]}">${roleMap[item.role]}</span>
+      <span class="status-badge ${statusBadge[item.status]}">${statusMap[item.status]}</span>
+      ${item.completed ? `<span class="badge" style="background:#D1FAE5;color:#065F46;">✅ 완료</span>` : ''}
+      <span class="badge" style="background:#E5E7EB;color:#374151;">${item.category}</span>
+    </div>
+    <div class="detail-section"><div class="detail-label">내용</div><div class="detail-value">${item.body||'(내용 없음)'}</div></div>
+    <div class="detail-section"><div class="detail-label">등록일</div><div class="detail-value">${item.date}</div></div>
+    ${item.completedDate?`<div class="detail-section"><div class="detail-label">완료일</div><div class="detail-value">${item.completedDate} (${getMonthLabel(getMonthKey(item.completedDate))} 폴더)</div></div>`:''}
+    <div class="detail-section"><div class="detail-label">공감 · 댓글</div><div class="detail-value">👍 ${item.votes?.length||0}명 · 💬 ${item.comments?.length||0}개</div></div>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" onclick="openEditModal(${id})">✏️ 편집</button>
+      <button class="btn ${item.completed?'btn-outline':'btn-success'} btn-sm" onclick="toggleDone(${id});closeModal('detail-modal')">
+        ${item.completed?'↩ 완료 해제':'✅ 완료 처리'}
+      </button>
+      ${currentRole==='subleader'?`<button class="btn btn-danger btn-sm" onclick="deleteItem(${id})">🗑️ 삭제</button>`:''}
+    </div>
+    <div class="form-actions" style="margin-top:10px;"><button class="btn btn-primary" onclick="closeModal('detail-modal')">닫기</button></div>
+  `;
+  openModal('detail-modal');
+}
+
+function deleteItem(id) {
+  items = items.filter(i => i.id !== id);
+  saveItems(); renderAll(); closeModal('detail-modal');
+  showToast('삭제되었습니다');
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+function openAddModal() {
+  const page = document.querySelector('.page.active').id.replace('page-','');
+  const typeMap = { brainstorm:'brainstorm', minutes:'minutes' };
+  document.getElementById('input-type').value = typeMap[page] || 'agenda';
+  document.getElementById('add-modal-title').textContent =
+    page==='brainstorm' ? '💡 브레인스토밍 등록' : page==='minutes' ? '📝 회의록 등록' : '📋 안건 등록';
+  document.getElementById('input-role').value = currentRole;
+  editingItemId = null;
+  document.getElementById('submit-btn').textContent = '등록하기';
+  openModal('add-modal');
+}
+
+function openEditModal(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  editingItemId = id;
+  document.getElementById('input-title').value = item.title;
+  document.getElementById('input-body').value = item.body || '';
+  document.getElementById('input-role').value = item.role;
+  document.getElementById('input-priority').value = item.priority;
+  document.getElementById('input-type').value = item.type;
+  document.getElementById('input-category').value = item.category;
+  document.getElementById('add-modal-title').textContent =
+    item.type==='brainstorm' ? '💡 브레인스토밍 수정' :
+    item.type==='minutes' ? '📝 회의록 수정' :
+    '📋 안건 수정';
+  document.getElementById('submit-btn').textContent = '수정 저장';
+  openModal('add-modal');
+}
+
+function cancelEditOrClose() {
+  editingItemId = null;
+  document.getElementById('add-modal-title').textContent = '안건 등록';
+  document.getElementById('submit-btn').textContent = '등록하기';
+  closeModal('add-modal');
+}
+
+function submitItem() {
+  const title = document.getElementById('input-title').value.trim();
+  if (!title) { showToast('제목을 입력해주세요'); return; }
+  const body = document.getElementById('input-body').value.trim();
+  const role = document.getElementById('input-role').value;
+  const priority = document.getElementById('input-priority').value;
+  const type = document.getElementById('input-type').value;
+  const category = document.getElementById('input-category').value;
+
+  if (editingItemId) {
+    const item = items.find(i => i.id === editingItemId);
+    if (item) {
+      item.title = title;
+      item.body = body;
+      item.role = role;
+      item.priority = priority;
+      item.type = type;
+      item.category = category;
+    }
+    saveItems(); renderAll();
+    cancelEditOrClose();
+    showToast('✏️ 수정이 저장되었습니다');
+    return;
+  }
+
+  items.unshift({
+    id: Date.now(),
+    type,
+    title,
+    body,
+    role,
+    priority,
+    status: 'pending',
+    category,
+    votes:[], comments:[],
+    date: new Date().toISOString().split('T')[0],
+    completed: false, completedDate: null
+  });
+  saveItems(); renderAll(); cancelEditOrClose();
+  document.getElementById('input-title').value = '';
+  document.getElementById('input-body').value = '';
+  showToast('✅ 등록되었습니다!');
+}
+
+function filterAgenda(filter, el) {
+  agendaFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderAgenda();
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const tabs = ['home','agenda','brainstorm','minutes','profile'];
+  document.querySelectorAll('.tab-btn')[tabs.indexOf(name)]?.classList.add('active');
+  document.getElementById('fab').style.display = ['home','agenda','brainstorm','minutes'].includes(name) ? 'flex' : 'none';
+}
+
+// AUTH
+let users = JSON.parse(localStorage.getItem('team_users') || '[]');
+let loggedUser = JSON.parse(localStorage.getItem('team_logged_user') || 'null');
+let verifyCodeVal = '';
+let verifyTimer = null;
+let selectedSignupRole = '';
+let emailVerified = false;
+
+function saveUsers() { localStorage.setItem('team_users', JSON.stringify(users)); }
+function saveLoggedUser() { localStorage.setItem('team_logged_user', JSON.stringify(loggedUser)); }
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (loggedUser) { showApp(); }
+});
+
+function showApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  updateProfilePage();
+  renderAll();
+}
+function showAuthScreen() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+}
+function switchAuthTab(tab) {
+  document.getElementById('tab-login-btn').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-signup-btn').classList.toggle('active', tab === 'signup');
+  ['auth-login','auth-signup-1','auth-signup-2','auth-signup-3'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  document.getElementById(tab === 'login' ? 'auth-login' : 'auth-signup-1').classList.add('active');
+  clearAuthErrors();
+}
+function clearAuthErrors() {
+  document.querySelectorAll('.auth-error, .auth-success-msg').forEach(el => {
+    el.classList.remove('show'); el.textContent = '';
+  });
+}
+function showAuthError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.add('show');
+}
+function showAuthSuccess(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.add('show');
+}
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  document.getElementById('login-error').classList.remove('show');
+  if (!email || !pw) { showAuthError('login-error', '이메일과 비밀번호를 입력해주세요'); return; }
+  const user = users.find(u => u.email === email && u.password === pw);
+  if (!user) { showAuthError('login-error', '이메일 또는 비밀번호가 올바르지 않습니다'); return; }
+  loggedUser = user;
+  saveLoggedUser();
+  currentRole = user.role;
+  localStorage.setItem('current_role', user.role);
+  showApp();
+  showToast(`👋 ${user.name}님, 환영합니다!`);
+}
+
+async function sendVerifyCode() {
+  const email = document.getElementById('signup-email').value.trim();
+  const errorBox = document.getElementById('signup1-error');
+  const verifyBox = document.getElementById('verify-box');
+  const codeDisplay = document.getElementById('code-display');
+  const sendBtn = document.getElementById('send-code-btn');
+
+  if (errorBox) { errorBox.classList.remove('show'); errorBox.textContent = ''; }
+
+  if (!email || !email.includes('@')) {
+    showAuthError('signup1-error', '올바른 이메일 주소를 입력하세요');
+    return;
+  }
+  if (users.find(u => u.email === email)) {
+    showAuthError('signup1-error', '이미 가입된 이메일입니다');
+    return;
+  }
+
+  verifyCodeVal = String(Math.floor(100000 + Math.random() * 900000));
+  emailVerified = false;
+
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = '발송 중...';
+  }
+
+  try {
+    const params = {
+      to_email: email,
+      code: verifyCodeVal,
+    };
+
+    await emailjs.send(
+      "service_1i3vqo2",
+      "template_j5tg5ym",
+      params
+    );
+
+    showAuthSuccess('signup1-error', '인증번호가 이메일로 발송되었습니다');
+    if (verifyBox) {
+      verifyBox.classList.add('show');
+      if (codeDisplay) codeDisplay.textContent = '******';
+    }
+    document.getElementById('code-input-group').style.display = 'block';
+    startVerifyTimer();
+  } catch (err) {
+    console.error('EmailJS error:', err);
+    showAuthError('signup1-error', '이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요');
+    verifyCodeVal = '';
+  } finally {
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = '인증번호 발송';
+    }
+  }
+}
+
+function startVerifyTimer() {
+  let remaining = 180;
+  const timerEl = document.getElementById('auth-timer');
+  if (verifyTimer) clearInterval(verifyTimer);
+  verifyTimer = setInterval(() => {
+    remaining--;
+    if (timerEl) {
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      timerEl.textContent = `유효시간 ${m}:${String(s).padStart(2,'0')}`;
+    }
+    if (remaining <= 0) {
+      clearInterval(verifyTimer);
+      verifyCodeVal = '';
+      if (timerEl) {
+        timerEl.textContent = '⏰ 시간 초과 — 재발송 해주세요';
+      }
+    }
+  }, 1000);
+}
+
+function verifyCode() {
+  const input = document.getElementById('signup-code').value.trim();
+  if (!verifyCodeVal) { showAuthError('signup1-error', '인증번호가 만료되었습니다. 재발송 해주세요'); return; }
+  if (input !== verifyCodeVal) { showAuthError('signup1-error', '인증번호가 올바르지 않습니다'); return; }
+  emailVerified = true;
+  clearInterval(verifyTimer);
+  document.getElementById('signup1-error').classList.remove('show');
+  document.getElementById('verify-success').classList.add('show');
+  document.getElementById('next-step1-btn').style.display = 'block';
+}
+
+function goSignupStep2() {
+  if (!emailVerified) { showAuthError('signup1-error', '이메일 인증을 완료해주세요'); return; }
+  document.getElementById('auth-signup-1').classList.remove('active');
+  document.getElementById('auth-signup-2').classList.add('active');
+}
+function goSignupStep3() {
+  const name = document.getElementById('signup-name').value.trim();
+  const pw = document.getElementById('signup-pw').value;
+  const pw2 = document.getElementById('signup-pw2').value;
+  if (!name) { showAuthError('signup2-error', '이름을 입력해주세요'); return; }
+  if (pw.length < 6) { showAuthError('signup2-error', '비밀번호는 6자리 이상이어야 합니다'); return; }
+  if (pw !== pw2) { showAuthError('signup2-error', '비밀번호가 일치하지 않습니다'); return; }
+  document.getElementById('auth-signup-2').classList.remove('active');
+  document.getElementById('auth-signup-3').classList.add('active');
+}
+function selectSignupRole(role, el) {
+  selectedSignupRole = role;
+  document.querySelectorAll('.role-select-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('signup3-error').classList.remove('show');
+}
+function completeSignup() {
+  if (!selectedSignupRole) { showAuthError('signup3-error', '직급을 선택해주세요'); return; }
+  const newUser = {
+    id: Date.now(),
+    email: document.getElementById('signup-email').value.trim(),
+    name: document.getElementById('signup-name').value.trim(),
+    password: document.getElementById('signup-pw').value,
+    role: selectedSignupRole,
+    joinDate: new Date().toISOString().split('T')[0]
+  };
+  users.push(newUser);
+  saveUsers();
+  loggedUser = newUser;
+  saveLoggedUser();
+  currentRole = newUser.role;
+  localStorage.setItem('current_role', newUser.role);
+  showApp();
+  showToast(`🎉 ${newUser.name}님, 가입을 축하합니다!`);
+}
+
+function doLogout() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  loggedUser = null;
+  localStorage.removeItem('team_logged_user');
+  showAuthScreen();
+  switchAuthTab('login');
+}
+function updateProfilePage() {
+  if (!loggedUser) return;
+  const roleMap2 = { subleader:'서브리더', senior:'시니어 매니저', junior:'주니어 매니저', newbie:'신입 매니저' };
+  const roleEmoji = { subleader:'🔵', senior:'🟣', junior:'🟢', newbie:'🟡' };
+  const rl = roleMap2[loggedUser.role] || '';
+  const em = roleEmoji[loggedUser.role] || '';
+  const avatar = document.querySelector('.profile-avatar');
+  if (avatar) avatar.textContent = loggedUser.name.charAt(0);
+  const nameEl = document.getElementById('profile-name-display');
+  if (nameEl) nameEl.textContent = loggedUser.name + ' 매니저';
+  const roleB = document.getElementById('profile-role-badge');
+  if (roleB) roleB.textContent = `${em} ${rl}`;
+  const headerB = document.getElementById('user-badge-header');
+  if (headerB) headerB.textContent = `${em} ${loggedUser.name}`;
+  const settingsEl = document.querySelector('#page-profile .settings-list');
+  if (settingsEl) {
+    let infoBlock = document.getElementById('auth-user-info-block');
+    if (!infoBlock) {
+      infoBlock = document.createElement('div');
+      infoBlock.id = 'auth-user-info-block';
+      infoBlock.className = 'auth-user-info';
+      settingsEl.parentNode.insertBefore(infoBlock, settingsEl);
+    }
+    infoBlock.innerHTML = `
+      <div class="info-row"><span class="info-label">이름</span><span class="info-val">${loggedUser.name}</span></div>
+      <div class="info-row"><span class="info-label">이메일</span><span class="info-val">${loggedUser.email}</span></div>
+      <div class="info-row"><span class="info-label">직급</span><span class="info-val">${em} ${rl}</span></div>
+      <div class="info-row"><span class="info-label">가입일</span><span class="info-val">${loggedUser.joinDate || '-'}</span></div>
+    `;
+  }
+  let logoutItem = document.getElementById('logout-settings-item');
+  if (!logoutItem && settingsEl) {
+    logoutItem = document.createElement('div');
+    logoutItem.id = 'logout-settings-item';
+    logoutItem.className = 'settings-item';
+    logoutItem.innerHTML = '<span class="settings-icon">🚪</span><span class="settings-text" style="color:#DC2626;font-weight:700;">로그아웃</span>';
+    logoutItem.onclick = doLogout;
+    settingsEl.appendChild(logoutItem);
+  }
+}
+
+function openRoleModal() { openModal('role-modal'); }
+function setRole(r, name, emoji) {
+  currentRole = r;
+  localStorage.setItem('current_role', r);
+  document.getElementById('user-badge-header').textContent = `${emoji} ${name}`;
+  document.getElementById('profile-role-badge').textContent = `${emoji} ${name}`;
+  closeModal('role-modal');
+  showToast(`${name}으로 전환되었습니다`);
+  renderAll();
+}
+
+function openMeetingDateModal() {
+  document.getElementById('meeting-date-input').value = meetingDate || '';
+  document.getElementById('meeting-place-input').value = meetingPlace || '';
+  openModal('meeting-modal');
+}
+function saveMeetingDate() {
+  meetingDate = document.getElementById('meeting-date-input').value;
+  meetingPlace = document.getElementById('meeting-place-input').value;
+  localStorage.setItem('meeting_date', meetingDate);
+  localStorage.setItem('meeting_place', meetingPlace);
+  closeModal('meeting-modal');
+  renderAll();
+  showToast('회식 일정 저장됨 📅');
+}
+
+function clearAll() {
+  if (confirm('모든 데이터를 초기화하시겠습니까?')) {
+    items = []; saveItems(); renderAll();
+    showToast('초기화 완료');
+  }
+}
+</script>
+</body>
+</html>
